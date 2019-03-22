@@ -1,19 +1,24 @@
-// Get Results
-// Check output and send back results
-// Queue
-
 package main
 
 import (
 	"io/ioutil"
 	"log"
 	"os"
+
+	"github.com/udhos/equalfile"
 	// "io"
 	// "bytes"
-	"github.com/udhos/equalfile"
 )
 
-func EvaluateSubmission(submissionPath string, expectedOutputPath string) int32 {
+// EvaluateSubmission : Evaluates the submission
+func EvaluateSubmission(submissionID string, questionID string) int32 {
+	// Path refers to path inside the cpjudge_webserver container because
+	// directory is already mounted.
+	base := "/media/vaibhav/Coding/go/src/github.com/cpjudge/cpjudge_webserver"
+	submissionsPath := base + "/submissions/" + submissionID
+	expectedOutputPath := base + "/questions/testcases/" +
+		questionID +
+		"/output/"
 
 	expectedOutputFiles, err := ioutil.ReadDir(expectedOutputPath)
 	if err != nil {
@@ -21,22 +26,25 @@ func EvaluateSubmission(submissionPath string, expectedOutputPath string) int32 
 	}
 
 	for _, f := range expectedOutputFiles {
-		errorFilePath := submissionPath + "error/" + f.Name()
-		outputFilePath := submissionPath + "output/" + f.Name()
+		errorFilePath := submissionsPath + "/error/" + f.Name()
+		compilationErrorFilePath := submissionsPath + "/compilation_error.err"
+		outputFilePath := submissionsPath + "/output/" + f.Name()
 		expectedOutputFilePath := expectedOutputPath + f.Name()
 
-		if fileInfo, _ := os.Stat(errorFilePath); fileInfo.Size() != 0 {
-			return 4 //Runtime Error
+		if fileInfo, err := os.Stat(compilationErrorFilePath); err == nil {
+			if fileInfo.Size() != 0 {
+				return 3 //Compilation Error
+			}
+		}
+		if fileInfo, err := os.Stat(errorFilePath); err == nil {
+			if fileInfo.Size() != 0 {
+				return 4 //Runtime Error
+			}
 		}
 		cmp := equalfile.New(nil, equalfile.Options{Debug: false})
 		if equal, _ := cmp.CompareFile(outputFilePath, expectedOutputFilePath); !equal {
 			return 1 // Wrong Answer
 		}
-		// if !deepCompare(outputFilePath, expectedOutputFilePath)	{
-		// 	return 1
-		// }
 	}
-
-	log.Println("CORRECT")
 	return 0 // Correct Answer
 }
